@@ -2,8 +2,8 @@ package main
 
 import (
 	"encoding/csv"
-	"fmt"
 	"io"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -13,9 +13,9 @@ type Employee struct {
 	EmployeeID, FirstName, LastName, AddressLine1, AddressLine2, City, State, ZipCode string
 }
 
-// This function shows employee detailes.
+// This function shows employee details.
 func (e *Employee) showEmp() {
-	fmt.Printf("\nEmployee Details:\nEmployee ID - %s \nName - %s %s \nAddress Line 1 - %s \nAddress Line 2 - %s \nCity - %s \nState - %s \nZip Code - %s\n", e.EmployeeID, e.FirstName, e.LastName, e.AddressLine1, e.AddressLine2, e.City, e.State, e.ZipCode)
+	log.Printf("\nEmployee Details:\nEmployee ID - %s \nName - %s %s \nAddress Line 1 - %s \nAddress Line 2 - %s \nCity - %s \nState - %s \nZip Code - %s\n", e.EmployeeID, e.FirstName, e.LastName, e.AddressLine1, e.AddressLine2, e.City, e.State, e.ZipCode)
 }
 
 // This function validates Employee ID based on following criteria:
@@ -60,9 +60,45 @@ func (e *Employee) validateZip() bool {
 	return validEmpID
 }
 
+// This function validates all the fields.
+// 1. Emp ID should be 10 characters.
+// 2. Emp ID should be digit only.
+// 3. Zip Code should be 6 characters.
+// 4. Zip Code should be digit only.
+// 5. Name, Address, City and State fields should not have any special character.
+func (e *Employee) validateEmpFields() bool {
+	// Checks the fields contains any special characters or not.
+	isValidFName := !checkSpclChar(e.FirstName)
+	isValidLName := !checkSpclChar(e.LastName)
+	isValidAddr1 := !checkSpclChar(e.AddressLine1)
+	isValidAddr2 := !checkSpclChar(e.AddressLine2)
+	isValidCity := !checkSpclChar(e.City)
+	isValidState := !checkSpclChar(e.State)
+
+	isValidEmp := e.validateEmpId() && e.validateZip() && isValidFName && isValidLName && isValidAddr1 && isValidAddr2 && isValidCity && isValidState
+
+	return isValidEmp
+}
+
+// This function returns the string slice of the employee details.
+func (e *Employee) formatEmp() []string {
+	return []string{e.EmployeeID, e.FirstName, e.LastName, e.AddressLine1, e.AddressLine2, e.City, e.State, e.ZipCode}
+}
+
 func main() {
-	fmt.Print("\n********** CSV File Handling **********\n\n")
+	log.Print("\n********** CSV File Handling **********\n\n")
 	var inputFilePath string = "./emp_data.csv"
+	var outputFilePath string = "./valid_emp_data.csv"
+
+	// Open the Output file.
+	outFile, err := os.Create(outputFilePath)
+	checkError(err)
+
+	// Close the Output file at the end.
+	defer outFile.Close()
+
+	// Create CSV writer object.
+	writer := csv.NewWriter(outFile)
 
 	// Read input CSV File.
 	empList := readEmpCSV(inputFilePath)
@@ -70,12 +106,16 @@ func main() {
 		panic("Empty File.")
 	}
 
-	// Traverse Employee List.
+	// Traverse Employee List. Checks for valid employee record. Writes the valid records into output file.
 	for idx := range empList {
 		var emp Employee = empList[idx]
-		emp.showEmp()
-		fmt.Printf("Valid EmpID? %v \n", emp.validateEmpId())
-		fmt.Printf("Valid Zip? %v \n", emp.validateZip())
+		if emp.validateEmpFields() {
+			log.Printf("\n\nWritting Valid Employee - %v into File - %s ", emp.EmployeeID, outputFilePath)
+			writeEmpCSV(emp, writer)
+		} else {
+			log.Println("\n\nSkipping invalid Employee -  ")
+			emp.showEmp()
+		}
 	}
 }
 
@@ -96,7 +136,7 @@ func readEmpCSV(filePath string) []Employee {
 	checkError(err)
 
 	// Prints the Header.
-	fmt.Println("File Headers - ", header)
+	log.Println("File Headers - ", header)
 
 	// Create an empty employee list.
 	empList := []Employee{}
@@ -119,6 +159,30 @@ func readEmpCSV(filePath string) []Employee {
 	}
 
 	return empList
+}
+
+// This function writes the employee details into output CSV file.
+func writeEmpCSV(emp Employee, writer *csv.Writer) {
+	err := writer.Write(emp.formatEmp())
+	checkError(err)
+	writer.Flush()
+}
+
+// This function checks if there is a special character in the input string.
+func checkSpclChar(inStr string) bool {
+	// List of special characters.
+	var specialChars = []rune{',', ';', ':', '"', '\'', '\\', '/', '{', '}', '|', '[', ']', '+',
+		'=', '-', '_', '(', ')', '*', '&', 'ˆ', '%', '$', '#', '@', '!', '˜', '`'}
+
+	var isContainSpecial bool
+	for _, char := range specialChars {
+		isContainSpecial = strings.ContainsRune(inStr, char)
+		if isContainSpecial {
+			break
+		}
+	}
+
+	return isContainSpecial
 }
 
 // This function checks the error and raise if it exists.
